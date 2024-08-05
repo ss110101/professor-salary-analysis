@@ -1,0 +1,207 @@
+---
+title: "An Analysis of Collegiate Professors and their Salaries"
+author: "Group 16"
+format: html
+---
+
+## Introduction
+
+#We are using the built in R salaries data set which displays the academic salary for professors of different ranks in a college in the US over a nine month period from 2008-2009. Our numeric outcome is the salary of the professor and our predictors of interest are the rank they hold, the sex/gender of the professor, the number of years of service they have, and the number of years since completing their phd. We are interested in this data set because we are interested in pursuing a career in academia in the future and want to better understand the landscape of the pay-scale for Professors.
+
+```{r}
+library(AER)
+data("Salaries")
+nrow(Salaries)
+ncol(Salaries)
+summary(Salaries)
+```
+
+#There are 67 observations for Assistant Professors, 64 observations for Associate Professors, and 266 observations for full Professors. There are 39 observations for Female professors and 358 observations for Male professors.
+
+## Research Questions
+
+#Throughout this project exploration we will be investigating and answering the following research questions: How does the rank of the professor impact their salary? The null hypothesis for this question is that rank is not a significant predictor of salary and the alternate hypothesis is that rank is a significant predictor of salary. How does the sex/gender of the professor affect their salary? The null hypothesis for this question is that sex is not a significant predictor of salary and the alternate hypothesis is that sex is a significant predictor of salary. How does the number of years since completing their phd affect their salary? The null hypothesis for this question is that years since phd is not a significant predictor of salary and the alternate hypothesis is that years since phd is a significant predictor of salary.
+
+## Data Exploration
+
+```{r}
+#summary(Salaries)
+boxplot(Salaries$salary ~ Salaries$rank)
+boxplot(Salaries$salary ~ Salaries$sex)
+plot(Salaries$salary ~ Salaries$yrs.service)
+plot(Salaries$salary ~ Salaries$yrs.since.phd)
+```
+
+```{r}
+cor(Salaries$salary, Salaries$yrs.since.phd)
+cor(Salaries$salary, Salaries$yrs.service)
+```
+
+#Our predictor rank seems to be the most highly correlated with Professor Salary. We believe this is true because full Professors have more promotions and more academic accomplishments which leads them to be highly compensated.
+
+## Multiple Linear Regression Model
+
+```{r}
+#basic model
+lm_salary <- lm(salary ~ rank + sex + yrs.service + yrs.since.phd, data = Salaries)
+summary(lm_salary)
+```
+
+#The coefficient for rankAssocProf means that compared to the baseline group of Assistant Professors, Associate professors are compensated \$13886.60 more on average. The coefficient for rankProf means that compared to the baseline group of Assistant Professors, full Professors are compensated \$46940.00 more on average. The coefficient for sexMale means that compared to the baseline group of Female Professors, Male Professors are compensated \$5,499.10 more on average. The coefficient for yrs.service mean that for every additional year of service, Professors are compensated \$373.80 less on average. The coefficient for yrs.since.phd mean that for every additional year since completing their phd, professors are compensated \$265.80 more on average.
+
+#The null hypothesis for the overall F-test is that none of the predictors can significantly predict the salary of professors. The alternate hypothesis for the overall F-test is that at least one of the predictors can significantly predict the salary of professors. Since our p-value for the overall F-test is less than 0.05, we can conclude to reject the null hypothesis in favor of the alternate hypothesis. The multiple R-squared for our model is 0.4017 which means that 40.17% of the variation in the model can be accounted for by our predictor variables. The residual standard error for our model is 23580 on 391 degrees of freedom which means that on average our predicted values are \$23,580 away from their actual observed values.
+
+## Improving the Model
+
+```{r}
+library(ggplot2)
+library(ggfortify)
+autoplot(lm_salary)
+```
+
+#Our assumption of Zero Conditional Mean error is not violated as there appears to be a horizontal line at a residual value equal to 0. The Constant Variance assumption appears to be violated as funneling is observed in our Residuals vs Fitted graph. Our assumption of Normality is upheld as there appears to be a straight line in our Normal Q-Q plot.
+
+```{r}
+#model with log transformation
+lm_salary2 <- lm(log(salary) ~ rank + sex + yrs.service + yrs.since.phd, data = Salaries)
+summary(lm_salary2)
+autoplot(lm_salary2)
+```
+
+#We put a log transformation on salary because we wanted to deal with the issue of heteroskedasticity in the data and aimed to achieve constant variance by applying a monotonic transformation on our dependent variable of interest. After applying the transformation and analyzing the results, we observe that the log transformation did not fix the issue of a non-constant variance.
+
+```{r}
+#model with square root transformation
+lm_salary3 <- lm(sqrt(salary) ~ rank + sex + yrs.service + yrs.since.phd, data = Salaries)
+summary(lm_salary3)
+autoplot(lm_salary3)
+```
+
+#Our second attempt at fixing the issue of a non-constant variance was to apply a square root transformation on salary. After getting the results, we see that this transformation also did not help with fixing the non-constant variance.
+
+```{r}
+#model with cube root transformation
+lm_salary4 <- lm(salary^(1/3) ~ rank + sex + yrs.service + yrs.since.phd, data = Salaries)
+summary(lm_salary4)
+autoplot(lm_salary4)
+```
+
+#Our third attempt at fixing the issue of a non-constant variance was to apply a cube root transformation on salary. After getting the results, we see that this transformation also did not help with fixing the non-constant variance.
+
+```{r}
+library(splines)
+#model with log transformation and spline
+lm_salary5 <- lm(log(salary) ~ rank + sex + ns(yrs.service) + yrs.since.phd, data = Salaries)
+summary(lm_salary5)
+autoplot(lm_salary5)
+```
+
+#We found that the log transformation was best suited for our analysis so we continued with using the log transformation on salary, and included a spline to see if that would improve our results. After analysis, we see that adding the spline did not impact our previous results to a significant degree, however we decided to keep it as seen in the next model.
+
+```{r}
+#model with log transformation, spline, and 1 interaction
+lm_salary6 <- lm(log(salary) ~ rank + sex + ns(yrs.service) + yrs.since.phd + yrs.service*yrs.since.phd, data = Salaries)
+summary(lm_salary6)
+autoplot(lm_salary6)
+```
+
+#In this updated model, we included an interaction between years of service and years since phd completion because we believed that there could be an underlying relationship between these two variables that could potentially affect the results of our model and the relationship the variables have on predicting salary. The null hypothesis we tested was that the interaction term between years of service and years since phd is not statistically significant. The alternate hypothesis was that the interaction term between years of service and years since phd is statistically significant. After looking at our summarizing model results, we see that the included interaction proves to be significant in predicting salary and all our variables developed statistical significance to some degree with the interaction present. A unit increase in years since phd is associated with a change of log of -0.0002413 in the effect of a unit increase in years of service on salary. The interaction term between years of service and years since phd is statistically significant at the 1% level.
+
+## Formal Hypothesis Tests
+
+Formal Hypothesis
+
+#Taken from above, the hypothesis tests that we will be investigating are as follows: 
+#How does the rank of the professor impact their salary? The null hypothesis for this question is that rank is not a significant predictor of salary and the alternate hypothesis is that rank is a significant predictor of salary. How does the number of sex affect their salary? The null hypothesis for this question is that sex is not a significant predictor of salary and the alternate hypothesis is that sex is a significant predictor of salary. How does the number of years since completing their phd affect their salary? The null hypothesis for this question is that years since phd is not a significant predictor of salary and the alternate hypothesis is that years since phd is a significant predictor of salary.
+
+```{r}
+summary(lm_salary6)
+drop1(lm_salary6)
+```
+
+#For our first hypothesis investigating if rank is a significant predictor of salary, we can see that from our summary results, compared to the baseline group, rank is a statistically significant predictor of salary because it has a p-value less than 0.05. For our second hypothesis investigating if sex is a significant predictor of salary, we can see that from our summary results, sex is not a statistically significant predictor of salary because it has a p-value greater than 0.05. For our third hypothesis investigating if years since phd is a significant predictor of salary, we can see that from our summary results, years since phd is a statistically significant predictor of salary because it has a p-value less than 0.05.
+
+#Since we are performing multiple testing, it is important to enact the Bonferroni Correction. In the results of our summary, it is apparent that we are obtaining the p-values of 6 predictors and thus it is important that we reduce the alpha six-fold. Since we are investigating statistical significance at an alpha value less than 0.05, our Bonferroni Correction will make a significant predictor have a p-value of less than 0.0083.
+
+#When analyzing the results of our summary, we find that only rank of Professor and the interaction term between years of service and years since phd are the only predictors that are statistically significant. In the context of our research questions, we conclude to reject the null hypothesis in favor of the alternate which states that rank is a statistically significant predictor. We conclude to fail to reject the null hypothesis of sex not being a statistically significant predictor of salary. Finally, we conclude to fail to reject the null hypothesis of years since phd not being a statistically significant predictor of salary, which is different from when we did not perform the Bonferroni Correction.
+
+## Robustness of Results
+
+```{r}
+library(simpleboot)
+lm_salary_boot <- lm.boot(lm_salary, R = 1000)
+summary(lm_salary_boot)
+t_boot <- coef(lm_salary) / summary(lm_salary_boot)[["stdev.params"]]
+
+p_boot <- 2 * pt(abs(t_boot), df = 20831, lower.tail = FALSE)
+
+print(cbind(`t value` = t_boot, `Pr(>|t|)` = p_boot))
+t(perc.lm(lm_salary_boot, c(0.025, 0.975)))
+confint(lm_salary)
+```
+
+#We conducted bootstrapping on our basic model, due to the issue that the bootstrap would not work on our chosen model due to the presence of transformations (specifically on the dependent variable) as well as a spline and an interaction term.
+#The Bootstrap standard errors are higher for the rank and sex variables but the linear model standard errors are higher for the years of service and the years since phd variables. We consider the Bootstrap standard errors to be more accurate compared to the linear model standard errors because Bootstrapping involves re sampling the data set and thus can better account for the non-constant variance assumption violation.
+
+```{r}
+autoplot(lm_salary6)
+```
+
+#From the results of the autoplot for the model that we chose to perform best (lm_salary6), we can see that there are 3 extreme observations in our Residuals vs Leverage graph. The observations are #283, #331, and #351.
+
+```{r}
+plot(Salaries$salary ~ Salaries$yrs.service)
+influencePlot(lm_salary)
+influencePlot(lm_salary6)
+```
+
+#When comparing the two models together, we see that the Studentized Residuals grow much larger once the various transformations have been applied to the linear model. The first model we compared was the general model without any transformations or interactions present. The second model, our developed model of choice, has a log transformation applied to salary, as well as a spline on years of service and an interaction term between years of service and years since completion of phd. We also noticed that we had different influential values with each model. In the first model, we found the influential observations to be #44, #195, #272, #293, #331, #365. In the second model, we found the influential observations to be #44, #132, #331, #351. These influential observations have high leverage due to their extreme values for years of service and years since phd as well as their extreme salaries.
+
+```{r}
+library(dplyr)
+S <- Salaries %>%
+  slice(-c(44, 132, 331, 351))
+summary(lm(log(salary) ~ rank + sex + ns(yrs.service) + yrs.since.phd + yrs.service*yrs.since.phd, data = S))
+summary(lm_salary6)
+```
+
+#After removing the influential observations from the data, we see that the predictor variables of sexMale and the spline on years of service gain significance by one level, while rank Associate Professor loses significance by one level. This provides evidence that the regression line changed as a result of deleting the influential observation from the data and give us a better predictive model.
+
+```{r}
+predict_loo <- function(model) {
+  y <- model.frame(model)[,1]
+  loo_r <- residuals(model) / (1 - hatvalues(model))
+  return(y - loo_r)
+}
+
+library(DAAG)
+predict_loo(lm_salary6)
+print(press(lm_salary6))
+```
+
+```{r}
+f_rsq_loo <- function(p) {
+  y <- Salaries$salary
+  out <- lm_salary6
+  loor <- (y - fitted(out)) / (1 - lm.influence(out)$hat)
+  y_hat <- y - loor
+  cor(y_hat, y)^2
+}
+
+loo_Rsqs <- sapply(3:25, f_rsq_loo)
+plot(3:25, loo_Rsqs, xlab = "Number of Terms", ylab = "LOO R-Squared")
+```
+
+#We performed Leave-One-Out Cross Validation to assess overfitting. We do not believe that there is evidence of overfitting in our model due to the similarity between the LOO R-sqaured and our Multiple R-squared values from the linear model summary results. The LOO R-squared takes into account the number of predictors we are using and thus enacts a penalty.
+
+```{r}
+vif(lm_salary6)
+```
+
+#From observing the results from our VIFs on our chosen model, we can see that values that are concerning to us would be the spline on years of service, years since phd, and the interaction term between years of service and years since phd due to the fact that these all have VIF values greater than 5. This indicated high multicollinearity between these variables. This makes sense however in the context of our research, because it is normal for professors who have lots of years of service to also have a greater number of years since completing their phd, as these variables technically go hand in hand with one another.
+
+## Conclusions
+
+#In this study, we conducted an analysis of a built in R dataset that assesses the salary of professors of different ranks, sex, years of service, and years since PhD. We were interested to see how these variables interact to predict salary. We built a multiple linear regression model containing each of these variables and applied log and spline transformations to better fit the assumptions of multiple linear regression as well as including an interaction term between two related variables to measure their effect on predicting salary. In addition, we found certain high leverage influential observations that changed our regression line and when taken out allowed us to have a better predictive model. Using this model, we addressed the questions if rank, sex, and years since PhD were predictive of professor salary. We performed a Bonferroni correction and found that only rank is a statistically significant predictor of professor salary.
+
+#Future work on this topic should address the issue of heteroskedasticity (non-constant variance) and should find a transformation in order to deal with this. In addition, one could use an OLS model instead of an MLR model to combat this issue. Future work should also look to include more variables that do not have high multicollinearity with each other as in our research of this topic, we found that a couple of our variable had high multicollinearity with each other which could lead to confounding results. Furthermore, this study could also be expanded by comparing the types of colleges that the professors teach at and what specific department they teach in order to investigate whether these factors are influential in predicting professor salaries.
